@@ -1,3 +1,7 @@
+/**
+ * @OnlyCurrentDoc
+*/
+
 function onOpen(e) { 
   DocumentApp.getUi().createAddonMenu()
   .addItem('Run', 'onRunAddOnHandler')
@@ -30,7 +34,7 @@ function onRunAddOnHandler(){
 }
 
 function showChecklistSidebar() {
-  var ui = HtmlService.createHtmlOutputFromFile('sidebar').setTitle('Checklist');
+  var ui = HtmlService.createHtmlOutputFromFile('sidebar').setTitle('Advanced Checklist');
   DocumentApp.getUi().showSidebar(ui);
 }
 
@@ -108,38 +112,49 @@ function getItemsFromDoc() {
    });
 }
 
-// update list item in document after change in sidebar
-function updateItemInDoc(index, isChecked) {
+// update list items in document after change in sidebar
+function updateItemsInDoc(selectedCheckboxesObj) {  
   var doc = DocumentApp.getActiveDocument();
   var userProperties = PropertiesService.getUserProperties();
   var docProperties = PropertiesService.getDocumentProperties();
   var listId = userProperties.getProperty('LIST_ID');
   var docIndex = 0;
   var i = 0;
+  var index, isChecked;
   
   var listItems = doc.getBody().getListItems();
   var currentDate = new Date();
   var userEmail = Session.getActiveUser().getEmail();
   
-  // get the index (in the document) of the list item
-  while (i < listItems.length){
-    if(listItems[i].getListId() === listId){ 
-      docIndex = i + index;
-      i = listItems.length; // break from the loop
-    } 
-    i++;
+  for (var selCboxObj in selectedCheckboxesObj) {
+    // get individual checkbox info from received payload object
+    index = parseInt(selCboxObj.replace('c', ''));
+    isChecked = selectedCheckboxesObj[selCboxObj];    
+    
+    // get the index (in the document) of the list item
+    while (i < listItems.length){
+      if(listItems[i].getListId() === listId){ 
+        docIndex = i + index;
+        i = listItems.length; // break from the loop
+      } 
+      i++;
+    }
+    
+    // update change in doc
+    var itemText = listItems[docIndex].editAsText();  
+    if(isChecked) {
+      var ln = itemText.getText().length;
+      itemText.setStrikethrough(0, ln - 1, true);
+      docProperties.setProperty( listId + '[' + index + ']', userEmail.replace(/@.*/, '') + Utilities.formatDate(currentDate, 'GMT + 2', "' @'HH:mm '-' dd.MM.yy"));    
+    } else {    
+      itemText.setStrikethrough(false);
+      docProperties.deleteProperty( listId + '[' + index + ']');
+    }
+    
+    i = 0;
+    docIndex = 0;
   }
   
-  // update change in doc
-  var itemText = listItems[docIndex].editAsText();  
-  if(isChecked) {
-    var ln = itemText.getText().length;
-    itemText.setStrikethrough(0, ln - 1, true);
-    docProperties.setProperty( listId + '[' + index + ']', userEmail.replace(/@.*/, '') + Utilities.formatDate(currentDate, 'GMT + 2', "' @'HH:mm '-' dd.MM.yy"));    
-  } else {    
-    itemText.setStrikethrough(false);
-    docProperties.deleteProperty( listId + '[' + index + ']');
-  }  
 }
 
 /** HELPER FUNCTIONS **/

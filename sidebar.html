@@ -4,84 +4,113 @@
     <base target="_top">
     <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
     <!-- The CSS package above applies Google styling to buttons and other elements. -->
-    <style></style>
   </head>
   <body>
     <div>      
-      <div id="checklist" style="margin-left:10px; margin-right:10px;"></div>      
+      <div id="checklist" style="margin-left:10px; margin-right:10px;"></div>
     </div>
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
     <script>
+    (function(){
+      var selectedCheckboxesObj = {}; // global object used to store info about selected checkboxes
+    
+      /* logic to send payload when user is idle [START] */
+      var timeoutID; // timeout ID returned by setTimeout, needed by clearTimeout
+      window.addEventListener("mousedown", resetTimer, false);
+    
+      function startTimer() {
+        timeoutID = window.setTimeout(goIdle, 2000);// wait 2 seconds before calling goIdle
+      }
+    
+      function resetTimer(e) {
+        window.clearTimeout(timeoutID);
+        goActive();
+      }
+    
+      function goIdle() {       
+        google.script.run.withSuccessHandler().withFailureHandler(showError).withUserObject(this).updateItemsInDoc(selectedCheckboxesObj); // send selection payload and update doc
+        selectedCheckboxesObj = {}; //reset payload obj
+      }
+    
+      function goActive() {
+        startTimer();
+      }
+      /* logic to send payload when user is idle [END] */
+    
       // on document load
-      window.addEventListener('load', function(event) {        
+      window.addEventListener('load', function() {
         getItemsFromDoc();
       });
-      
+    
       // on document unload
-      window.addEventListener('unload', function(event) {
+      window.addEventListener('unload', function() {
         sessionStorage.removeItem('savedItemsResponsiveInfo');
       });
-
-      function updateChecklist(listItemsObject) {         
-         var itemsResponsiveInfo = JSON.stringify(listItemsObject.listItemsResponsiveInfo);
-         var savedItemsResponsiveInfo = sessionStorage.getItem('savedItemsResponsiveInfo');
-        
-         if(itemsResponsiveInfo !== savedItemsResponsiveInfo){
-           sessionStorage.setItem('savedItemsResponsiveInfo', itemsResponsiveInfo);
-           $('#checklist').empty();
-           if(itemsResponsiveInfo && itemsResponsiveInfo.length) {
-             populateChecklist(listItemsObject);
-           }
-         }
-         getItemsFromDoc();
-     }
-      
-     function populateChecklist(listItemsObject) {     
+    
+      function updateChecklist(listItemsObject) {
+        var itemsResponsiveInfo = JSON.stringify(listItemsObject.listItemsResponsiveInfo);
+        var savedItemsResponsiveInfo = sessionStorage.getItem('savedItemsResponsiveInfo');
+    
+        if(itemsResponsiveInfo !== savedItemsResponsiveInfo) { // update sidebar checklist only if something has changed in doc since last update
+          sessionStorage.setItem('savedItemsResponsiveInfo', itemsResponsiveInfo);
+          $('#checklist').empty();
+          if(itemsResponsiveInfo && itemsResponsiveInfo.length) {
+            populateChecklist(listItemsObject);
+          }
+        }
+        getItemsFromDoc();
+      }
+    
+      function populateChecklist(listItemsObject) {
         var listItemsInfo = listItemsObject.listItemsInfo;
         var listItemsResponsiveInfo = listItemsObject.listItemsResponsiveInfo;
         var listItem, isChecked, isDisabled, listItemMarginLeft, listItemMarginTop, labelColor, labelText, stamp;
-        
-        for (var i = 0; i < listItemsInfo.length; i++ ){          
+    
+        for (var i = 0; i < listItemsInfo.length; i++ ){
           labelText = listItemsResponsiveInfo[i].text;
           isChecked = listItemsResponsiveInfo[i].checked ? ' checked' : '';
+          labelColor = listItemsResponsiveInfo[i].checked ? 'style="color: #A9A9A9;"' : '';
           listItemMarginLeft = 20 * listItemsResponsiveInfo[i].nestingLevel;
           listItemMarginTop = listItemMarginLeft === 0 ? ';margin-top: 10px;' : '';
           isDisabled = labelText ? '' : 'disabled';
           stamp = listItemsInfo[i].stamp ? listItemsInfo[i].stamp : '';
-          
-          listItem = $('<div title="' + stamp + '" style="margin-left:' + listItemMarginLeft + 'px' + listItemMarginTop + '"><input type="checkbox" name="' + listItemsInfo[i].listId + '" id="item-' + i + '" value="" ' + isChecked + ' ' + isDisabled + '><label for="item-' + i + '">' + labelText + '</label></div>');
+    
+          listItem = $('<div title="' + stamp + '" style="margin-left:' + listItemMarginLeft + 'px' + listItemMarginTop + '"><input type="checkbox" name="' + listItemsInfo[i].listId + '" id="item-' + i + '" value="" ' + isChecked + ' ' + isDisabled + '><label for="item-' + i + '" ' + labelColor + '>' + labelText + '</label></div>');
           $('#checklist').append(listItem);
         }
         $('#checklist input').click(itemClickHandler);
       }
-
+    
       function itemClickHandler(e) {
         var item = $(e.currentTarget);
         var index = parseInt(item.attr('id').split('-')[1]);
         var isChecked;
-        
-        if(item.attr('checked')){
+    
+        if(item.attr('checked')) {
           item.removeAttr('checked');
+          item.context.labels[0].setAttribute('style', '');
           isChecked = false;
         } else {
           item.attr('checked', '');
+          item.context.labels[0].setAttribute('style', 'color: #A9A9A9;');
           isChecked = true;
         }
-        
-        // temporarily disable the checklist until response from Google re-renders the list
-        $('input[type="checkbox"]').attr('disabled', '');
-        google.script.run.withSuccessHandler().withFailureHandler(showError).withUserObject(this).updateItemInDoc(index, isChecked);        
+    
+        //add item to global payload object
+        selectedCheckboxesObj['c' + index] = isChecked;
       }
-      
-      function getItemsFromDoc() {         
+    
+      function getItemsFromDoc() {
         google.script.run.withSuccessHandler(updateChecklist).withFailureHandler(showError).withUserObject(this).getItemsFromDoc();
       }
-
-      // Inserts a div that contains an error message after a given element.      
+    
+      // inserts a div that contains an error message after a given element.
       function showError(msg, element) {
         var div = $('<div id="error" class="error">' + msg + '</div>');
         $(element).after(div);
       }
+    
+    })();
     </script>
   </body>
 </html>
