@@ -17,7 +17,7 @@ function onRunAddOnHandler(){
   var body = DocumentApp.getActiveDocument().getBody();
   var lastChild = body.getChild(body.getNumChildren() - 1);
   if(lastChild.getType() == DocumentApp.ElementType.LIST_ITEM) {
-    DocumentApp.getActiveDocument().getBody().appendParagraph("   ");
+    DocumentApp.getActiveDocument().getBody().appendParagraph("          ");
   }
   
   // reset LIST_ID property on run and get list from cursor
@@ -84,7 +84,7 @@ function getItemsFromDoc() {
   }
   
   var doc = DocumentApp.getActiveDocument();
-  var listItems = doc.getBody().getListItems();  
+  var listItems = doc.getBody().getListItems();
   var listItemsInfo = [];
   var listItemsResponsiveInfo = [];  
   var text;  
@@ -94,7 +94,7 @@ function getItemsFromDoc() {
       text = listItems[i].getText();      
       // non-responsive info
       listItemsInfo.push(new Object({
-        listId: listId,        
+        listId: listId,
         stamp: docProperties.getProperty(listId + '[' + listItemsInfo.length + ']')
       }));
       // responsive info
@@ -117,7 +117,7 @@ function updateItemsInDoc(selectedCheckboxesObj) {
   var doc = DocumentApp.getActiveDocument();
   var userProperties = PropertiesService.getUserProperties();
   var docProperties = PropertiesService.getDocumentProperties();
-  var listId = userProperties.getProperty('LIST_ID');
+  var listId = selectedCheckboxesObj.listId ? selectedCheckboxesObj.listId : userProperties.getProperty('LIST_ID');
   var docIndex = 0;
   var i = 0;
   var index, isChecked;
@@ -127,34 +127,35 @@ function updateItemsInDoc(selectedCheckboxesObj) {
   var userEmail = Session.getActiveUser().getEmail();
   
   for (var selCboxObj in selectedCheckboxesObj) {
-    // get individual checkbox info from received payload object
-    index = parseInt(selCboxObj.replace('c', ''));
-    isChecked = selectedCheckboxesObj[selCboxObj];    
+    if (selCboxObj !== 'listId') {
+      // get individual checkbox info from received payload object
+      index = parseInt(selCboxObj.replace('c', ''));
+      isChecked = selectedCheckboxesObj[selCboxObj];    
     
-    // get the index (in the document) of the list item
-    while (i < listItems.length){
-      if(listItems[i].getListId() === listId){ 
-        docIndex = i + index;
-        i = listItems.length; // break from the loop
-      } 
-      i++;
+      // get the index (in the document) of the list item
+      while (i < listItems.length){
+        if(listItems[i].getListId() === listId){ 
+          docIndex = i + index;
+          i = listItems.length; // break from the loop
+        } 
+        i++;
+      }
+    
+      // update change in doc
+      var itemText = listItems[docIndex].editAsText();  
+      if(isChecked) {
+        var ln = itemText.getText().length;
+        itemText.setStrikethrough(0, ln - 1, true);
+        docProperties.setProperty( listId + '[' + index + ']', userEmail.replace(/@.*/, '') + Utilities.formatDate(currentDate, 'GMT + 2', "' @'HH:mm '-' dd.MM.yy"));    
+      } else {    
+        itemText.setStrikethrough(false);
+        docProperties.deleteProperty( listId + '[' + index + ']');
+      }
+    
+      i = 0;
+      docIndex = 0;
     }
-    
-    // update change in doc
-    var itemText = listItems[docIndex].editAsText();  
-    if(isChecked) {
-      var ln = itemText.getText().length;
-      itemText.setStrikethrough(0, ln - 1, true);
-      docProperties.setProperty( listId + '[' + index + ']', userEmail.replace(/@.*/, '') + Utilities.formatDate(currentDate, 'GMT + 2', "' @'HH:mm '-' dd.MM.yy"));    
-    } else {    
-      itemText.setStrikethrough(false);
-      docProperties.deleteProperty( listId + '[' + index + ']');
-    }
-    
-    i = 0;
-    docIndex = 0;
-  }
-  
+  }  
 }
 
 /** HELPER FUNCTIONS **/

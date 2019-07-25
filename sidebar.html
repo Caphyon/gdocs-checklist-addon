@@ -3,11 +3,11 @@
   <head>
     <base target="_top">
     <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
-    <!-- The CSS package above applies Google styling to buttons and other elements. -->
+    <!-- The CSS package above applies Google styling to buttons and other elements. -->    
   </head>
   <body>
     <div>      
-      <div id="checklist" style="margin-left:10px; margin-right:10px;"></div>
+      <div id="checklist" style="margin-left:10px;margin-right:10px;"></div>
     </div>
     <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
     <script>
@@ -17,24 +17,17 @@
       /* logic to send payload when user is idle [START] */
       var timeoutID; // timeout ID returned by setTimeout, needed by clearTimeout
       window.addEventListener("mousedown", resetTimer, false);
-    
-      function startTimer() {
-        timeoutID = window.setTimeout(goIdle, 2000);// wait 2 seconds before calling goIdle
-      }
-    
+      
       function resetTimer(e) {
         window.clearTimeout(timeoutID);
-        goActive();
+        timeoutID = window.setTimeout(goIdle, 1500);// start timer to wait 1500 ms before going idle
       }
     
-      function goIdle() {       
+      function goIdle() {      
         google.script.run.withSuccessHandler().withFailureHandler(showError).withUserObject(this).updateItemsInDoc(selectedCheckboxesObj); // send selection payload and update doc
         selectedCheckboxesObj = {}; //reset payload obj
-      }
-    
-      function goActive() {
-        startTimer();
-      }
+      }    
+
       /* logic to send payload when user is idle [END] */
     
       // on document load
@@ -57,7 +50,7 @@
           if(itemsResponsiveInfo && itemsResponsiveInfo.length) {
             populateChecklist(listItemsObject);
           }
-        }
+        }        
         getItemsFromDoc();
       }
     
@@ -98,6 +91,9 @@
     
         //add item to global payload object
         selectedCheckboxesObj['c' + index] = isChecked;
+        if(!selectedCheckboxesObj.listId) {
+          selectedCheckboxesObj.listId = item.attr('name');
+        }
       }
     
       function getItemsFromDoc() {
